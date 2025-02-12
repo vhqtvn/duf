@@ -162,6 +162,25 @@ func TestGetFields(t *testing.T) {
 			number:   11,
 			expected: [11]string{"1111", "2", "3:3", "/", "/mnt/a\"b", "rw", "shared:7", "-", "tmpfs", "-", "rw,inode64"},
 		},
+
+		// WSL specific mount lines
+		{
+			input:    "1888 78 0:172 / /Docker/host rw,noatime - 9p C:\\134Program\\040Files\\134Docker\\134Docker\\134resources rw,dirsync,aname=drvfs;path=C:\\Program Files\\Docker\\Docker\\resources;symlinkroot=/mnt/,mmap,access=client,msize=65536,trans=fd,rfd=3,wfd=3",
+			number:   11,
+			expected: [11]string{
+				"1888",
+				"78",
+				"0:172",
+				"/",
+				"/Docker/host",
+				"rw,noatime",
+				"",
+				"-",
+				"9p",
+				"C:\\Program Files\\Docker\\Docker\\resources",
+				"rw,dirsync,aname=drvfs;path=C:\\Program Files\\Docker\\Docker\\resources;symlinkroot=/mnt/,mmap,access=client,msize=65536,trans=fd,rfd=3,wfd=3",
+			},
+		},
 	}
 
 	for _, tc := range tt {

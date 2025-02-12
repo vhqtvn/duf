@@ -130,43 +130,78 @@ func parseMountInfoLine(line string) (int, [11]string) {
 		return 0, fields
 	}
 
-	var i int
-	for _, f := range strings.Fields(line) {
-		// when parsing the optional fields, loop until we find the separator
-		if i == mountinfoOptionalFields {
-			// (6)  optional fields: zero or more fields of the form
-			//        "tag[:value]"; see below.
-			// (7)  separator: the end of the optional fields is marked
-			//        by a single hyphen.
-			if f != "-" {
-				if fields[i] == "" {
-					fields[i] += f
-				} else {
-					fields[i] += " " + f
-				}
-
-				// keep reading until we reach the separator
-				continue
+	// Handle simple cases without the separator
+	if !strings.Contains(line, " - ") {
+		parts := strings.Fields(line)
+		if len(parts) == 0 {
+			return 0, fields
+		}
+		if len(parts) <= 6 {
+			for i := 0; i < len(parts); i++ {
+				fields[i] = parts[i]
 			}
-
-			// separator found, continue parsing
-			i++
+			return len(parts), fields
 		}
-
-		switch i {
-		case mountinfoMountPoint:
-			fallthrough
-		case mountinfoMountSource:
-			fallthrough
-		case mountinfoFsType:
-			fields[i] = unescapeFstab(f)
-
-		default:
-			fields[i] = f
+		// If more than 6 fields, join the rest
+		for i := 0; i < 6; i++ {
+			fields[i] = parts[i]
 		}
-
-		i++
+		fields[6] = strings.Join(parts[6:], " ")
+		return 6, fields
 	}
 
-	return i, fields
+	// Split the line into parts before and after the separator "-"
+	parts := strings.SplitN(line, " - ", 2)
+	if len(parts) != 2 {
+		return 0, fields
+	}
+
+	// Handle the first part (before the separator)
+	firstParts := strings.Fields(parts[0])
+	if len(firstParts) < 6 {
+		return 0, fields
+	}
+
+	// Fill in the first 6 fields
+	for i := 0; i < 6 && i < len(firstParts); i++ {
+		if i == mountinfoMountPoint {
+			fields[i] = unescapeFstab(firstParts[i])
+		} else {
+			fields[i] = firstParts[i]
+		}
+	}
+
+	// Handle optional fields (field 6)
+	if len(firstParts) > 6 {
+		fields[mountinfoOptionalFields] = strings.Join(firstParts[6:], " ")
+	}
+
+	// Add the separator
+	fields[7] = "-"
+
+	// Handle the second part (after the separator)
+	secondParts := strings.SplitN(strings.TrimSpace(parts[1]), " ", 3)
+	if len(secondParts) < 2 {
+		return 0, fields
+	}
+
+	// Fill in filesystem type and mount source
+	fields[mountinfoFsType] = unescapeFstab(secondParts[0])
+	fields[mountinfoMountSource] = unescapeFstab(secondParts[1])
+
+	// Add super options if present
+	if len(secondParts) > 2 {
+		fields[10] = secondParts[2]
+	}
+
+	// Count non-empty fields
+	count := len(fields)
+	for i := len(fields) - 1; i >= 0; i-- {
+		if fields[i] != "" {
+			break
+		}
+		count--
+	}
+
+	return count, fields
 }
